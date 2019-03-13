@@ -6,12 +6,15 @@
 script/source = "tool
 extends Control
 
+# our config path; this wont change
 const ConfPath = \"res://addons/TodoPlugin/todo.cfg\"
 
+# node refs
 onready var AddDialog = $AddWindow
 onready var ConfigDialog = $ConfigWindow
 onready var ItemTree = $Dock/Items
 
+# variables
 onready var _root = ItemTree.create_item()
 var _todo_file = ConfigFile.new()
 var _conf_file = ConfigFile.new()
@@ -19,7 +22,7 @@ var todo_path
 
 func _ready():
     _conf_file.load(ConfPath)
-    todo_path = _conf_file.get_value(\"config\", \"save_path\", \"res://TODO.ini\")
+    _get_todo_path()
     
     var f = File.new()
     if f.file_exists(todo_path):
@@ -28,15 +31,20 @@ func _ready():
     else:
         _todo_file.save(todo_path)
 
+func _get_todo_path():
+    todo_path = _conf_file.get_value(\"config\", \"save_path\")
+
 func _save():
     _conf_file.save(ConfPath)
     _todo_file.save(todo_path)
 
+# load all of our current todos
 func _load():
     for section in _todo_file.get_sections():
         _add_item(_todo_file.get_value(section, \"title\"),
                   _todo_file.get_value(section, \"comment\"))
 
+# add a new item to the tree element
 func _add_item(title, comment):
     var key = str(title.hash())
     var title_item = ItemTree.create_item(_root)
@@ -44,22 +52,30 @@ func _add_item(title, comment):
     title_item.set_collapsed(true)
     
     var comment_item = ItemTree.create_item(title_item)
+    
+    # on this maybe set up some kind of column wrapping?
+    #  since the tree node won't do it on it's own (look at
+    #  bleepyourself code for the algo)
     comment_item.set_text(0, comment)
     
     # if our title doesn't exist in the config file then we
     #  add our data
+    # This looks a bit ugly. Maybe change?
     if not Array(_todo_file.get_sections()).has(key):
         _todo_file.set_value(key, \"title\", title)
         _todo_file.set_value(key, \"comment\", comment)
         _save()
 
+# display our add item dialog
 func _on_AddTodo_pressed():
     AddDialog.popup_centered()
     
+# callback for when the popup is closing
 func _on_AddWindow_popup_hide():
     if AddDialog.new_item != null:
         _add_item(AddDialog.new_item.front(), AddDialog.new_item.back())
 
+# display our config popup
 func _on_SettingsBtn_pressed():
     ConfigDialog.popup_centered()
 
@@ -229,7 +245,7 @@ size_flags_horizontal = 3
 text = "Add Item"
 
 [node name="ViewWindow" type="WindowDialog" parent="."]
-visible = true
+editor/display_folded = true
 margin_left = 297.0
 margin_top = 98.0
 margin_right = 691.0
@@ -325,6 +341,7 @@ text = "Add Item"
 
 [node name="ConfigWindow" type="WindowDialog" parent="."]
 editor/display_folded = true
+visible = true
 margin_left = 324.0
 margin_top = 67.0
 margin_right = 669.0
@@ -343,6 +360,7 @@ margin_right = 141.5
 margin_bottom = 72.834
 
 [node name="SavePath" type="HBoxContainer" parent="ConfigWindow/Elements"]
+editor/display_folded = true
 margin_right = 282.0
 margin_bottom = 24.0
 custom_constants/separation = 16
@@ -361,6 +379,7 @@ size_flags_horizontal = 3
 placeholder_text = "res://TODO.ini"
 
 [node name="Source" type="HBoxContainer" parent="ConfigWindow/Elements"]
+editor/display_folded = true
 margin_top = 28.0
 margin_right = 282.0
 margin_bottom = 52.0
@@ -376,21 +395,21 @@ margin_left = 217.0
 margin_right = 241.0
 margin_bottom = 24.0
 
-[node name="Timeout" type="HBoxContainer" parent="ConfigWindow/Elements"]
+[node name="SrcTimeout" type="HBoxContainer" parent="ConfigWindow/Elements"]
 editor/display_folded = true
 visible = false
-margin_top = 28.0
+margin_top = 56.0
 margin_right = 282.0
-margin_bottom = 52.0
+margin_bottom = 80.0
 custom_constants/separation = 27
 
-[node name="Label" type="Label" parent="ConfigWindow/Elements/Timeout"]
+[node name="Label" type="Label" parent="ConfigWindow/Elements/SrcTimeout"]
 margin_top = 5.0
 margin_right = 151.0
 margin_bottom = 19.0
 text = "Scan Timeout (minutes)"
 
-[node name="SpinBox" type="SpinBox" parent="ConfigWindow/Elements/Timeout"]
+[node name="SpinBox" type="SpinBox" parent="ConfigWindow/Elements/SrcTimeout"]
 margin_left = 178.0
 margin_right = 252.0
 margin_bottom = 24.0
@@ -400,6 +419,27 @@ value = 5.0
 rounded = true
 allow_greater = true
 align = 1
+
+[node name="SrcLocation" type="HBoxContainer" parent="ConfigWindow/Elements"]
+editor/display_folded = true
+visible = false
+margin_top = 84.0
+margin_right = 282.0
+margin_bottom = 108.0
+custom_constants/separation = 17
+
+[node name="Label" type="Label" parent="ConfigWindow/Elements/SrcLocation"]
+margin_top = 5.0
+margin_right = 80.0
+margin_bottom = 19.0
+text = "Script Folder"
+
+[node name="SpinBox" type="LineEdit" parent="ConfigWindow/Elements/SrcLocation"]
+margin_left = 97.0
+margin_right = 282.0
+margin_bottom = 24.0
+size_flags_horizontal = 3
+placeholder_text = "res://scripts"
 
 [node name="AutoSave" type="HBoxContainer" parent="ConfigWindow/Elements"]
 editor/display_folded = true
@@ -454,6 +494,5 @@ text = "Save"
 [connection signal="pressed" from="AddWindow/ActionButtons/AddBtn" to="AddWindow" method="_on_AddBtn_pressed"]
 [connection signal="about_to_show" from="ViewWindow" to="ViewWindow" method="_on_about_to_show"]
 [connection signal="popup_hide" from="ViewWindow" to="ViewWindow" method="_on_popup_hide"]
-[connection signal="popup_hide" from="ViewWindow" to="." method="_on_AddWindow_popup_hide"]
 [connection signal="pressed" from="ViewWindow/ActionButtons/CancelBtn" to="ViewWindow" method="_on_CancelBtn_pressed"]
 [connection signal="pressed" from="ViewWindow/ActionButtons/AddBtn" to="ViewWindow" method="_on_AddBtn_pressed"]
