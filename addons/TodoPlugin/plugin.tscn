@@ -1,166 +1,459 @@
-[gd_scene load_steps=2 format=2]
+[gd_scene load_steps=4 format=2]
+
+[ext_resource path="res://addons/TodoPlugin/settings.png" type="Texture" id=1]
 
 [sub_resource type="GDScript" id=1]
-
 script/source = "tool
 extends Control
 
-onready var AddDialog = $WindowDialog
+const ConfPath = \"res://addons/TodoPlugin/todo.cfg\"
+
+onready var AddDialog = $AddWindow
+onready var ConfigDialog = $ConfigWindow
+onready var ItemTree = $Dock/Items
+
+onready var _root = ItemTree.create_item()
+var _todo_file = ConfigFile.new()
+var _conf_file = ConfigFile.new()
+var todo_path
 
 func _ready():
-	pass
+    _conf_file.load(ConfPath)
+    todo_path = _conf_file.get_value(\"config\", \"save_path\", \"res://TODO.ini\")
+    
+    var f = File.new()
+    if f.file_exists(todo_path):
+        _todo_file.load(todo_path)
+        _load()
+    else:
+        _todo_file.save(todo_path)
 
+func _save():
+    _conf_file.save(ConfPath)
+    _todo_file.save(todo_path)
+
+func _load():
+    for section in _todo_file.get_sections():
+        _add_item(_todo_file.get_value(section, \"title\"),
+                  _todo_file.get_value(section, \"comment\"))
+
+func _add_item(title, comment):
+    var key = str(title.hash())
+    var title_item = ItemTree.create_item(_root)
+    title_item.set_text(0, title)
+    title_item.set_collapsed(true)
+    
+    var comment_item = ItemTree.create_item(title_item)
+    comment_item.set_text(0, comment)
+    
+    # if our title doesn't exist in the config file then we
+    #  add our data
+    if not Array(_todo_file.get_sections()).has(key):
+        _todo_file.set_value(key, \"title\", title)
+        _todo_file.set_value(key, \"comment\", comment)
+        _save()
 
 func _on_AddTodo_pressed():
-	AddDialog.popup_centered()
-	#pass # replace with function body
+    AddDialog.popup_centered()
+    
+func _on_AddWindow_popup_hide():
+    if AddDialog.new_item != null:
+        _add_item(AddDialog.new_item.front(), AddDialog.new_item.back())
+
+func _on_SettingsBtn_pressed():
+    ConfigDialog.popup_centered()
+
 "
 
-[node name="Todo" type="Control" index="0"]
+[sub_resource type="GDScript" id=2]
+script/source = "tool
+extends WindowDialog
 
-anchor_left = 0.0
-anchor_top = 0.0
-anchor_right = 0.0
-anchor_bottom = 0.0
+onready var title   = $Elements/Title/Title
+onready var comment = $Elements/Text
+
+var new_item = null
+
+func _on_about_to_show():
+    new_item = null
+
+func _on_popup_hide():
+    title.set_text('')
+    comment.set_text('')
+
+func _on_CancelBtn_pressed():
+    hide()
+
+func _on_AddBtn_pressed():
+    new_item = [title.get_text(), comment.get_text()]
+    hide()
+"
+
+[node name="Todo" type="Control"]
+pause_mode = 2
 margin_left = 5.0
 margin_top = 3.0
 margin_right = 178.0
 margin_bottom = 242.0
-rect_pivot_offset = Vector2( 0, 0 )
-rect_clip_content = false
-mouse_filter = 0
-mouse_default_cursor_shape = 0
-size_flags_horizontal = 1
-size_flags_vertical = 1
 script = SubResource( 1 )
+__meta__ = {
+"_edit_horizontal_guides_": [  ],
+"_edit_vertical_guides_": [ 332.929, 670.653 ]
+}
 
-[node name="VBoxContainer" type="VBoxContainer" parent="." index="0"]
+[node name="AutosaveTimer" type="Timer" parent="."]
+wait_time = 2.0
+autostart = true
 
-anchor_left = 0.0
-anchor_top = 0.0
+[node name="Dock" type="VBoxContainer" parent="."]
 anchor_right = 1.0
 anchor_bottom = 1.0
-rect_pivot_offset = Vector2( 0, 0 )
-rect_clip_content = false
-mouse_filter = 1
-mouse_default_cursor_shape = 0
-size_flags_horizontal = 1
-size_flags_vertical = 1
-alignment = 0
 
-[node name="ButtonContainer" type="HBoxContainer" parent="VBoxContainer" index="0"]
-
-anchor_left = 0.0
-anchor_top = 0.0
-anchor_right = 0.0
-anchor_bottom = 0.0
+[node name="DockButtons" type="HBoxContainer" parent="Dock"]
+editor/display_folded = true
 margin_right = 173.0
-margin_bottom = 20.0
-rect_pivot_offset = Vector2( 0, 0 )
-rect_clip_content = false
-mouse_filter = 1
-mouse_default_cursor_shape = 0
-size_flags_horizontal = 1
-size_flags_vertical = 1
-alignment = 0
+margin_bottom = 30.0
 
-[node name="AddTodo" type="Button" parent="VBoxContainer/ButtonContainer" index="0"]
-
-anchor_left = 0.0
-anchor_top = 0.0
-anchor_right = 0.0
-anchor_bottom = 0.0
-margin_right = 173.0
-margin_bottom = 20.0
-rect_pivot_offset = Vector2( 0, 0 )
-rect_clip_content = false
-focus_mode = 2
-mouse_filter = 0
-mouse_default_cursor_shape = 0
+[node name="AddTodo" type="Button" parent="Dock/DockButtons"]
+margin_right = 133.0
+margin_bottom = 30.0
 size_flags_horizontal = 3
-size_flags_vertical = 1
-toggle_mode = false
-enabled_focus_mode = 2
-shortcut = null
-group = null
 text = "Add Item"
-flat = false
-align = 1
 
-[node name="Tree" type="Tree" parent="VBoxContainer" index="1"]
+[node name="SettingsBtn" type="Button" parent="Dock/DockButtons"]
+margin_left = 137.0
+margin_right = 173.0
+margin_bottom = 30.0
+icon = ExtResource( 1 )
 
-anchor_left = 0.0
-anchor_top = 0.0
-anchor_right = 0.0
-anchor_bottom = 0.0
-margin_top = 24.0
+[node name="Items" type="Tree" parent="Dock"]
+margin_top = 34.0
 margin_right = 173.0
 margin_bottom = 239.0
-rect_pivot_offset = Vector2( 0, 0 )
-rect_clip_content = true
-focus_mode = 2
-mouse_filter = 0
-mouse_default_cursor_shape = 0
-size_flags_horizontal = 1
 size_flags_vertical = 3
-columns = 1
-allow_reselect = false
-allow_rmb_select = false
-hide_folding = false
-hide_root = false
-drop_mode_flags = 0
-select_mode = 0
-_sections_unfolded = [ "Margin", "Size Flags" ]
+hide_root = true
 
-[node name="WindowDialog" type="WindowDialog" parent="." index="1"]
-
-anchor_left = 0.0
-anchor_top = 0.0
-anchor_right = 0.0
-anchor_bottom = 0.0
-margin_left = 300.0
+[node name="AddWindow" type="WindowDialog" parent="."]
+editor/display_folded = true
+margin_left = 297.0
 margin_top = 98.0
-margin_right = 890.0
-margin_bottom = 398.0
-rect_pivot_offset = Vector2( 0, 0 )
-rect_clip_content = false
-mouse_filter = 0
-mouse_default_cursor_shape = 0
-size_flags_horizontal = 1
-size_flags_vertical = 1
-popup_exclusive = false
-window_title = ""
-resizable = false
-_sections_unfolded = [ "Popup" ]
+margin_right = 691.0
+margin_bottom = 386.0
+window_title = "Add New Todo"
+script = SubResource( 2 )
 
-[node name="MenuButton" type="OptionButton" parent="WindowDialog" index="1"]
+[node name="Elements" type="VBoxContainer" parent="AddWindow"]
+editor/display_folded = true
+margin_left = 31.0
+margin_top = 14.0
+margin_right = 368.0
+margin_bottom = 222.0
+custom_constants/separation = 10
 
-anchor_left = 0.0
-anchor_top = 0.0
-anchor_right = 0.0
-anchor_bottom = 0.0
-margin_left = 247.0
-margin_top = 123.0
-margin_right = 343.0
-margin_bottom = 157.0
-rect_pivot_offset = Vector2( 0, 0 )
-rect_clip_content = false
-focus_mode = 2
-mouse_filter = 0
-mouse_default_cursor_shape = 0
-size_flags_horizontal = 1
-size_flags_vertical = 1
-toggle_mode = false
-action_mode = 0
-enabled_focus_mode = 2
-shortcut = null
-group = null
+[node name="Type" type="HBoxContainer" parent="AddWindow/Elements"]
+editor/display_folded = true
+visible = false
+margin_right = 337.0
+margin_bottom = 20.0
+custom_constants/separation = 11
+
+[node name="TypeLbl" type="Label" parent="AddWindow/Elements/Type"]
+margin_top = 3.0
+margin_right = 34.0
+margin_bottom = 17.0
+text = "Type:"
+
+[node name="TypeSelect" type="OptionButton" parent="AddWindow/Elements/Type"]
+margin_left = 45.0
+margin_right = 125.0
+margin_bottom = 20.0
 text = "TODO"
-flat = false
-align = 0
-items = [ "TODO", null, false, 0, false, "FIXME", null, false, 1, false ]
+items = [ "TODO", null, false, 0, false, "FIXME", null, false, 1, false, "WONTFIX", null, false, 2, null ]
 selected = 0
 
-[connection signal="pressed" from="VBoxContainer/ButtonContainer/AddTodo" to="." method="_on_AddTodo_pressed"]
+[node name="Title" type="HBoxContainer" parent="AddWindow/Elements"]
+editor/display_folded = true
+margin_right = 337.0
+margin_bottom = 24.0
+custom_constants/separation = 9
 
+[node name="TitleLbl" type="Label" parent="AddWindow/Elements/Title"]
+margin_top = 5.0
+margin_right = 36.0
+margin_bottom = 19.0
+text = "Title: "
 
+[node name="Title" type="LineEdit" parent="AddWindow/Elements/Title"]
+margin_left = 45.0
+margin_right = 337.0
+margin_bottom = 24.0
+size_flags_horizontal = 3
+clear_button_enabled = true
+placeholder_text = "Title"
+
+[node name="TextLbl" type="Label" parent="AddWindow/Elements"]
+margin_top = 34.0
+margin_right = 337.0
+margin_bottom = 48.0
+text = "Comment: "
+
+[node name="Text" type="TextEdit" parent="AddWindow/Elements"]
+margin_top = 58.0
+margin_right = 337.0
+margin_bottom = 208.0
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="ActionButtons" type="HBoxContainer" parent="AddWindow"]
+editor/display_folded = true
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+margin_left = 31.0
+margin_top = -46.0
+margin_right = -26.0
+margin_bottom = -17.0
+custom_constants/separation = 24
+
+[node name="CancelBtn" type="Button" parent="AddWindow/ActionButtons"]
+margin_right = 156.0
+margin_bottom = 29.0
+size_flags_horizontal = 3
+text = "Cancel"
+
+[node name="AddBtn" type="Button" parent="AddWindow/ActionButtons"]
+margin_left = 180.0
+margin_right = 337.0
+margin_bottom = 29.0
+size_flags_horizontal = 3
+text = "Add Item"
+
+[node name="ViewWindow" type="WindowDialog" parent="."]
+visible = true
+margin_left = 297.0
+margin_top = 98.0
+margin_right = 691.0
+margin_bottom = 386.0
+window_title = "Add New Todo"
+script = SubResource( 2 )
+
+[node name="Elements" type="VBoxContainer" parent="ViewWindow"]
+editor/display_folded = true
+margin_left = 31.0
+margin_top = 14.0
+margin_right = 368.0
+margin_bottom = 222.0
+custom_constants/separation = 10
+
+[node name="Type" type="HBoxContainer" parent="ViewWindow/Elements"]
+editor/display_folded = true
+visible = false
+margin_right = 337.0
+margin_bottom = 20.0
+custom_constants/separation = 11
+
+[node name="TypeLbl" type="Label" parent="ViewWindow/Elements/Type"]
+margin_top = 3.0
+margin_right = 34.0
+margin_bottom = 17.0
+text = "Type:"
+
+[node name="TypeSelect" type="OptionButton" parent="ViewWindow/Elements/Type"]
+margin_left = 45.0
+margin_right = 125.0
+margin_bottom = 20.0
+text = "TODO"
+items = [ "TODO", null, false, 0, false, "FIXME", null, false, 1, false, "WONTFIX", null, false, 2, null ]
+selected = 0
+
+[node name="Title" type="HBoxContainer" parent="ViewWindow/Elements"]
+editor/display_folded = true
+margin_right = 337.0
+margin_bottom = 24.0
+custom_constants/separation = 9
+
+[node name="TitleLbl" type="Label" parent="ViewWindow/Elements/Title"]
+margin_top = 5.0
+margin_right = 36.0
+margin_bottom = 19.0
+text = "Title: "
+
+[node name="Title" type="LineEdit" parent="ViewWindow/Elements/Title"]
+margin_left = 45.0
+margin_right = 337.0
+margin_bottom = 24.0
+size_flags_horizontal = 3
+clear_button_enabled = true
+placeholder_text = "Title"
+
+[node name="TextLbl" type="Label" parent="ViewWindow/Elements"]
+margin_top = 34.0
+margin_right = 337.0
+margin_bottom = 48.0
+text = "Comment: "
+
+[node name="Text" type="TextEdit" parent="ViewWindow/Elements"]
+margin_top = 58.0
+margin_right = 337.0
+margin_bottom = 208.0
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="ActionButtons" type="HBoxContainer" parent="ViewWindow"]
+editor/display_folded = true
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+margin_left = 31.0
+margin_top = -46.0
+margin_right = -26.0
+margin_bottom = -17.0
+custom_constants/separation = 24
+
+[node name="CancelBtn" type="Button" parent="ViewWindow/ActionButtons"]
+margin_right = 156.0
+margin_bottom = 29.0
+size_flags_horizontal = 3
+text = "Cancel"
+
+[node name="AddBtn" type="Button" parent="ViewWindow/ActionButtons"]
+margin_left = 180.0
+margin_right = 337.0
+margin_bottom = 29.0
+size_flags_horizontal = 3
+text = "Add Item"
+
+[node name="ConfigWindow" type="WindowDialog" parent="."]
+editor/display_folded = true
+margin_left = 324.0
+margin_top = 67.0
+margin_right = 669.0
+margin_bottom = 323.0
+popup_exclusive = true
+window_title = "Todo Configuration"
+
+[node name="Elements" type="VBoxContainer" parent="ConfigWindow"]
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+margin_left = -140.5
+margin_top = -105.166
+margin_right = 141.5
+margin_bottom = 72.834
+
+[node name="SavePath" type="HBoxContainer" parent="ConfigWindow/Elements"]
+margin_right = 282.0
+margin_bottom = 24.0
+custom_constants/separation = 16
+
+[node name="Label" type="Label" parent="ConfigWindow/Elements/SavePath"]
+margin_top = 5.0
+margin_right = 61.0
+margin_bottom = 19.0
+text = "Save Path"
+
+[node name="LineEdit" type="LineEdit" parent="ConfigWindow/Elements/SavePath"]
+margin_left = 77.0
+margin_right = 282.0
+margin_bottom = 24.0
+size_flags_horizontal = 3
+placeholder_text = "res://TODO.ini"
+
+[node name="Source" type="HBoxContainer" parent="ConfigWindow/Elements"]
+margin_top = 28.0
+margin_right = 282.0
+margin_bottom = 52.0
+
+[node name="Label" type="Label" parent="ConfigWindow/Elements/Source"]
+margin_top = 5.0
+margin_right = 213.0
+margin_bottom = 19.0
+text = "Scan Source for TODO comments"
+
+[node name="CheckBox" type="CheckBox" parent="ConfigWindow/Elements/Source"]
+margin_left = 217.0
+margin_right = 241.0
+margin_bottom = 24.0
+
+[node name="Timeout" type="HBoxContainer" parent="ConfigWindow/Elements"]
+editor/display_folded = true
+visible = false
+margin_top = 28.0
+margin_right = 282.0
+margin_bottom = 52.0
+custom_constants/separation = 27
+
+[node name="Label" type="Label" parent="ConfigWindow/Elements/Timeout"]
+margin_top = 5.0
+margin_right = 151.0
+margin_bottom = 19.0
+text = "Scan Timeout (minutes)"
+
+[node name="SpinBox" type="SpinBox" parent="ConfigWindow/Elements/Timeout"]
+margin_left = 178.0
+margin_right = 252.0
+margin_bottom = 24.0
+min_value = 1.0
+max_value = 15.0
+value = 5.0
+rounded = true
+allow_greater = true
+align = 1
+
+[node name="AutoSave" type="HBoxContainer" parent="ConfigWindow/Elements"]
+editor/display_folded = true
+visible = false
+margin_top = 56.0
+margin_right = 282.0
+margin_bottom = 80.0
+custom_constants/separation = 88
+
+[node name="Label" type="Label" parent="ConfigWindow/Elements/AutoSave"]
+margin_top = 5.0
+margin_right = 129.0
+margin_bottom = 19.0
+text = "Autosave TODO List"
+
+[node name="CheckBox" type="CheckBox" parent="ConfigWindow/Elements/AutoSave"]
+margin_left = 217.0
+margin_right = 241.0
+margin_bottom = 24.0
+pressed = true
+
+[node name="ActionButtons" type="HBoxContainer" parent="ConfigWindow"]
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+margin_left = 5.0
+margin_top = -33.5294
+margin_right = -6.0
+margin_bottom = -13.5294
+custom_constants/separation = 24
+
+[node name="CancelBtn" type="Button" parent="ConfigWindow/ActionButtons"]
+margin_right = 155.0
+margin_bottom = 20.0
+size_flags_horizontal = 3
+text = "Cancel"
+
+[node name="SaveBtn" type="Button" parent="ConfigWindow/ActionButtons"]
+margin_left = 179.0
+margin_right = 334.0
+margin_bottom = 20.0
+size_flags_horizontal = 3
+text = "Save"
+
+[connection signal="timeout" from="AutosaveTimer" to="." method="_save"]
+[connection signal="pressed" from="Dock/DockButtons/AddTodo" to="." method="_on_AddTodo_pressed"]
+[connection signal="pressed" from="Dock/DockButtons/SettingsBtn" to="." method="_on_SettingsBtn_pressed"]
+[connection signal="about_to_show" from="AddWindow" to="AddWindow" method="_on_about_to_show"]
+[connection signal="popup_hide" from="AddWindow" to="." method="_on_AddWindow_popup_hide"]
+[connection signal="popup_hide" from="AddWindow" to="AddWindow" method="_on_popup_hide"]
+[connection signal="pressed" from="AddWindow/ActionButtons/CancelBtn" to="AddWindow" method="_on_CancelBtn_pressed"]
+[connection signal="pressed" from="AddWindow/ActionButtons/AddBtn" to="AddWindow" method="_on_AddBtn_pressed"]
+[connection signal="about_to_show" from="ViewWindow" to="ViewWindow" method="_on_about_to_show"]
+[connection signal="popup_hide" from="ViewWindow" to="ViewWindow" method="_on_popup_hide"]
+[connection signal="popup_hide" from="ViewWindow" to="." method="_on_AddWindow_popup_hide"]
+[connection signal="pressed" from="ViewWindow/ActionButtons/CancelBtn" to="ViewWindow" method="_on_CancelBtn_pressed"]
+[connection signal="pressed" from="ViewWindow/ActionButtons/AddBtn" to="ViewWindow" method="_on_AddBtn_pressed"]
