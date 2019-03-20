@@ -2,15 +2,15 @@
 
 importer="texture"
 type="StreamTexture"
-path="res://.import/delete.png-6db84072cc540a25c012628378837118.stex"
+path="res://.import/delete.png-778f613bb4d1c4ddb0cdef250c18f925.stex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://addons/TodoPlugin/delete.png"
-dest_files=[ "res://.import/delete.png-6db84072cc540a25c012628378837118.stex" ]
+source_file="res://addons/TodoPlugin/assets/delete.png"
+dest_files=[ "res://.import/delete.png-778f613bb4d1c4ddb0cdef250c18f925.stex" ]
 
 [params]
 
