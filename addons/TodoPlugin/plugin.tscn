@@ -32,11 +32,13 @@ var todo_path
 var src_location
 var scan_interval
 var scan_src
+var backup
 
 
 func _ready():
     _todo_regex.compile(TodoRegex)
     _comment_regex.compile(CommentRegex)
+    
     _conf_file.load(ConfPath)
     _load_config()
     
@@ -52,6 +54,13 @@ func _save():
     _conf_file.save(ConfPath)
     _todo_file.save(todo_path)
 
+# makes a backup of the todo file
+func _make_backup():
+    _save()
+    
+    var bak = Directory.new()
+    bak.copy(todo_path, todo_path + '.bak')
+
 # load all of our current todos
 func _load():
     for section in _todo_file.get_sections():
@@ -64,6 +73,7 @@ func _load_config():
     src_location = _conf_file.get_value(\"config\", \"scan_location\")
     scan_interval = _conf_file.get_value(\"config\", \"scan_source_timeout\")
     scan_src = _conf_file.get_value(\"config\", \"scan_source\")
+    backup = _conf_file.get_value(\"config\", \"backup\")
     
     if scan_src:
         $SourceScan.wait_time = scan_interval
@@ -82,6 +92,7 @@ func _add_to_tree(title, comment):
     #  since the tree node won't do it on it's own (look at
     #  bleepyourself code for the algo)
     comment_item.set_text(0, comment)
+    comment_item.set_selectable(0, false)
     
     # after we've added it to our tree, we add it into the db
     _add_item(title, comment)
@@ -120,7 +131,7 @@ func _on_AddWindow_popup_hide():
 
 # display our config popup
 func _on_SettingsBtn_pressed():
-    ConfigDialog.popup_centered()
+    ConfigDialog.open(_conf_file)
 
 # when the delete button is pressed
 func _on_DeleteBtn_pressed():
@@ -160,6 +171,7 @@ func _on_ConfigWindow_popup_hide():
             _conf_file.set_value(\"config\", \"scan_location\", options.pop_front())
             _conf_file.set_value(\"config\", \"scan_source_timeout\", options.pop_front())
         
+        _conf_file.set_value(\"config\", \"backup\", options.pop_front())
         # save! save, save, save!
         _save()
         _load_config()
@@ -307,8 +319,19 @@ onready var save_path = $Elements/SavePath/SavePathEdt
 onready var scan_src  = $Elements/Source/ScanSrcChk
 onready var src_location = $Elements/SrcLocation/SrcLocationEdt
 onready var src_timeout  = $Elements/SrcTimeout/ScanTimeoutSpn
+onready var backup = $Elements/BackupCheck/BakChk
 
 var conf_options = null
+
+func open(config):
+    save_path.set_text(config.get_value(\"config\", \"save_path\"))
+    scan_src.set_pressed(config.get_value(\"config\", \"scan_source\"))
+    src_location.set_text(config.get_value(\"config\", \"scan_location\"))
+    src_timeout.set_value(config.get_value(\"config\", \"scan_source_timeout\"))
+    backup.set_pressed(config.get_value(\"config\", \"backup\"))
+    line_wrapping.set_value(config.get_value(\"config\", \"characters_per_line\"))
+    
+    .popup_centered()
 
 func _on_ConfigWindow_about_to_show():
     conf_options = null
@@ -326,6 +349,8 @@ func _on_SaveBtn_pressed():
     if scan:
         conf_options.append(src_location.get_text())
         conf_options.append(src_timeout.get_value())
+    
+    conf_options.append(backup.get_pressed())
         
     _on_CancelBtn_pressed()
 "
@@ -344,6 +369,10 @@ __meta__ = {
 [node name="SourceScan" type="Timer" parent="."]
 wait_time = 5.0
 
+[node name="BackupTimer" type="Timer" parent="."]
+process_mode = 0
+wait_time = 10.0
+autostart = true
 [node name="Dock" type="VBoxContainer" parent="."]
 editor/display_folded = true
 anchor_right = 1.0
@@ -458,7 +487,6 @@ text = "Add Item"
 
 [node name="ViewWindow" type="WindowDialog" parent="."]
 editor/display_folded = true
-visible = true
 margin_left = 297.0
 margin_top = 98.0
 margin_right = 691.0
@@ -529,7 +557,7 @@ editor/display_folded = true
 margin_left = 297.0
 margin_top = 98.0
 margin_right = 691.0
-margin_bottom = 305.0
+margin_bottom = 389.0
 window_title = "Todo Configuration"
 script = SubResource( 4 )
 
@@ -561,6 +589,7 @@ size_flags_horizontal = 3
 placeholder_text = "res://TODO.ini"
 
 [node name="Source" type="HBoxContainer" parent="ConfigWindow/Elements"]
+editor/display_folded = true
 margin_top = 34.0
 margin_right = 337.0
 margin_bottom = 58.0
@@ -577,6 +606,7 @@ margin_right = 241.0
 margin_bottom = 24.0
 
 [node name="SrcLocation" type="HBoxContainer" parent="ConfigWindow/Elements"]
+editor/display_folded = true
 margin_top = 68.0
 margin_right = 337.0
 margin_bottom = 92.0
@@ -596,6 +626,7 @@ size_flags_horizontal = 3
 placeholder_text = "res://scripts"
 
 [node name="SrcTimeout" type="HBoxContainer" parent="ConfigWindow/Elements"]
+editor/display_folded = true
 margin_top = 102.0
 margin_right = 337.0
 margin_bottom = 126.0
@@ -618,28 +649,25 @@ rounded = true
 allow_greater = true
 align = 1
 
-[node name="AutoSave" type="HBoxContainer" parent="ConfigWindow/Elements"]
+[node name="BackupCheck" type="HBoxContainer" parent="ConfigWindow/Elements"]
 editor/display_folded = true
-visible = false
 margin_top = 136.0
 margin_right = 337.0
 margin_bottom = 160.0
-custom_constants/separation = 88
 
-[node name="Label" type="Label" parent="ConfigWindow/Elements/AutoSave"]
+[node name="BakLbl" type="Label" parent="ConfigWindow/Elements/BackupCheck"]
 margin_top = 5.0
-margin_right = 129.0
+margin_right = 204.0
 margin_bottom = 19.0
-text = "Autosave TODO List"
+text = "Automatically backup TODO file"
 
-[node name="CheckBox" type="CheckBox" parent="ConfigWindow/Elements/AutoSave"]
-margin_left = 217.0
-margin_right = 241.0
+[node name="BakChk" type="CheckBox" parent="ConfigWindow/Elements/BackupCheck"]
+margin_left = 208.0
+margin_right = 232.0
 margin_bottom = 24.0
 pressed = true
 
 [node name="ActionButtons" type="HBoxContainer" parent="ConfigWindow"]
-editor/display_folded = true
 anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
@@ -671,6 +699,7 @@ window_title = "Confirm Delete"
 dialog_text = "        Delete Todo Item?"
 
 [connection signal="timeout" from="SourceScan" to="." method="_scan_source"]
+[connection signal="timeout" from="BackupTimer" to="." method="_make_backup"]
 [connection signal="pressed" from="Dock/DockButtons/AddTodo" to="." method="_on_AddTodo_pressed"]
 [connection signal="pressed" from="Dock/DockButtons/DeleteBtn" to="." method="_on_DeleteBtn_pressed"]
 [connection signal="pressed" from="Dock/DockButtons/SettingsBtn" to="." method="_on_SettingsBtn_pressed"]
