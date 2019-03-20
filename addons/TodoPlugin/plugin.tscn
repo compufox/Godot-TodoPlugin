@@ -87,12 +87,8 @@ func _add_to_tree(title, comment):
     title_item.set_collapsed(true)
     
     var comment_item = ItemTree.create_item(title_item)
-    
-    # on this maybe set up some kind of column wrapping?
-    #  since the tree node won't do it on it's own (look at
-    #  bleepyourself code for the algo)
-    comment_item.set_text(0, comment)
     comment_item.set_selectable(0, false)
+    comment_item.set_text(0, comment)
     
     # after we've added it to our tree, we add it into the db
     _add_item(title, comment)
@@ -172,6 +168,7 @@ func _on_ConfigWindow_popup_hide():
             _conf_file.set_value(\"config\", \"scan_source_timeout\", options.pop_front())
         
         _conf_file.set_value(\"config\", \"backup\", options.pop_front())
+        
         # save! save, save, save!
         _save()
         _load_config()
@@ -237,8 +234,7 @@ func _scan_file(f):
             if matched and _comment_regex.search(line):
                 # this is where we start capturing the comments
                 #  underneath the todo
-                pass
-"
+                pass"
 
 [sub_resource type="GDScript" id=2]
 script/source = "tool
@@ -329,7 +325,6 @@ func open(config):
     src_location.set_text(config.get_value(\"config\", \"scan_location\"))
     src_timeout.set_value(config.get_value(\"config\", \"scan_source_timeout\"))
     backup.set_pressed(config.get_value(\"config\", \"backup\"))
-    line_wrapping.set_value(config.get_value(\"config\", \"characters_per_line\"))
     
     .popup_centered()
 
@@ -373,6 +368,7 @@ wait_time = 5.0
 process_mode = 0
 wait_time = 10.0
 autostart = true
+
 [node name="Dock" type="VBoxContainer" parent="."]
 editor/display_folded = true
 anchor_right = 1.0
@@ -553,11 +549,11 @@ size_flags_horizontal = 3
 text = "Close"
 
 [node name="ConfigWindow" type="WindowDialog" parent="."]
-editor/display_folded = true
+visible = true
 margin_left = 297.0
 margin_top = 98.0
 margin_right = 691.0
-margin_bottom = 389.0
+margin_bottom = 339.0
 window_title = "Todo Configuration"
 script = SubResource( 4 )
 
@@ -571,6 +567,7 @@ margin_bottom = 222.0
 custom_constants/separation = 10
 
 [node name="SavePath" type="HBoxContainer" parent="ConfigWindow/Elements"]
+editor/display_folded = true
 margin_right = 337.0
 margin_bottom = 24.0
 custom_constants/separation = 16
@@ -666,6 +663,55 @@ margin_left = 208.0
 margin_right = 232.0
 margin_bottom = 24.0
 pressed = true
+
+[node name="BackupPath" type="HBoxContainer" parent="ConfigWindow/Elements"]
+editor/display_folded = true
+visible = false
+margin_top = 170.0
+margin_right = 337.0
+margin_bottom = 194.0
+custom_constants/separation = 16
+
+[node name="Label" type="Label" parent="ConfigWindow/Elements/BackupPath"]
+margin_top = 5.0
+margin_right = 61.0
+margin_bottom = 19.0
+hint_tooltip = "Have the plugin automatically make a backup of your TODO file"
+text = "Save Path"
+
+[node name="SavePathEdt" type="LineEdit" parent="ConfigWindow/Elements/BackupPath"]
+margin_left = 77.0
+margin_right = 337.0
+margin_bottom = 24.0
+size_flags_horizontal = 3
+placeholder_text = "res://TODO.ini"
+
+[node name="LineWrapping" type="HBoxContainer" parent="ConfigWindow/Elements"]
+editor/display_folded = true
+visible = false
+margin_top = 170.0
+margin_right = 337.0
+margin_bottom = 194.0
+hint_tooltip = "Because tree elements don't provide an automatic text wrapping function we have to do it manually. 
+This gives you some control over how many characters can fit per line of comment text."
+custom_constants/separation = 27
+
+[node name="Label" type="Label" parent="ConfigWindow/Elements/LineWrapping"]
+margin_top = 5.0
+margin_right = 123.0
+margin_bottom = 19.0
+text = "Characters per Line"
+
+[node name="CharCountSpn" type="SpinBox" parent="ConfigWindow/Elements/LineWrapping"]
+margin_left = 150.0
+margin_right = 224.0
+margin_bottom = 24.0
+min_value = 1.0
+max_value = 150.0
+value = 18.0
+rounded = true
+allow_greater = true
+align = 1
 
 [node name="ActionButtons" type="HBoxContainer" parent="ConfigWindow"]
 anchor_top = 1.0
