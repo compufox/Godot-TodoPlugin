@@ -11,8 +11,8 @@ extends Control
 
 # our config path; this wont change
 const ConfPath = \"res://addons/TodoPlugin/todo.cfg\"
-const TodoRegex = \"#?(T|t)(O|o)(D|d)(O|o)\"
-const CommentRegex = \"\\\\s+#(\\\\s+)?\"
+const TodoRegex = \"^(\\\\s+)?#\\\\s?(T|t)(O|o)(D|d)(O|o)\\\\s(?<title>.+)\"
+const CommentRegex = \"^\\\\s+#(\\\\s+)?(?<comment>.+)\"
 
 # node refs
 onready var AddDialog     = $AddWindow
@@ -71,7 +71,7 @@ func _load():
 func _load_config():
     todo_path = _conf_file.get_value(\"config\", \"save_path\")
     src_location = _conf_file.get_value(\"config\", \"scan_location\")
-    scan_interval = _conf_file.get_value(\"config\", \"scan_source_timeout\")
+    scan_interval = _conf_file.get_value(\"config\", \"scan_source_timeout\") * 60
     scan_src = _conf_file.get_value(\"config\", \"scan_source\")
     backup = _conf_file.get_value(\"config\", \"backup\")
     
@@ -366,7 +366,7 @@ wait_time = 5.0
 
 [node name="BackupTimer" type="Timer" parent="."]
 process_mode = 0
-wait_time = 10.0
+wait_time = 600.0
 autostart = true
 
 [node name="Dock" type="VBoxContainer" parent="."]
