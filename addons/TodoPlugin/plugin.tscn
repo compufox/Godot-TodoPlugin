@@ -209,17 +209,22 @@ func _scan_dir(directory):
     var dir = Directory.new()
     if dir.open(directory) == OK and dir.list_dir_begin(true, true) == OK:
         var current = dir.get_next()
+        
         while not current.empty():
             if dir.current_is_dir():
                 _scan_dir(current)
             elif current.ends_with(\".gd\") or current.ends_with(\".cs\"):
-                _scan_file(current)
+                var thr = Thread.new()
+                if thr.start(self, \"_scan_file\", current) == OK:
+                    thr.wait_to_finish()
+            
+            current = dir.get_next()
 
 # scan a file for todo comments
 func _scan_file(f):
     var file = File.new()
     
-    if file.open(f) == OK:
+    if file.open(f, File.READ) == OK:
         var line = file.get_line()
         var matched = null
         var catching = false
@@ -241,6 +246,8 @@ func _scan_file(f):
                     catching = false
                     _add_to_tree(title,
                                  filename + \" \" + comment.join(\" \"))
+                    title = \"\"
+                    comment = PoolStringArray()
                     
             
             # check for our title down here first
@@ -249,7 +256,9 @@ func _scan_file(f):
                 catching = true
                 title = matched.get_string(\"title\")  
             
-            line = file.get_line()"
+            line = file.get_line()
+        
+    file.close()"
 
 [sub_resource type="GDScript" id=2]
 script/source = "tool
@@ -761,6 +770,7 @@ margin_right = 594.0
 margin_bottom = 281.0
 window_title = "Confirm Delete"
 dialog_text = "        Delete Todo Item?"
+
 [connection signal="timeout" from="SourceScan" to="." method="_scan_source"]
 [connection signal="timeout" from="BackupTimer" to="." method="_make_backup"]
 [connection signal="pressed" from="Dock/DockButtons/AddTodo" to="." method="_on_AddTodo_pressed"]
