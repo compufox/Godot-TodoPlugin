@@ -11,8 +11,8 @@ extends Control
 
 # our config path; this wont change
 const ConfPath = \"res://addons/TodoPlugin/todo.cfg\"
-const TodoRegex = \"^(\\\\s+)?#\\\\s?(T|t)(O|o)(D|d)(O|o)\\\\s(?<title>.+)\"
-const CommentRegex = \"^\\\\s+#(\\\\s+)?(?<comment>.+)\"
+const TodoRegex = \"^(\\\\s+)?#(\\\\s+)?(T|t)(O|o)(D|d)(O|o):?\\\\s+(?<title>.*)\"
+const CommentRegex = \"^(\\\\s+)?#(\\\\s+)?(?<comment>.*)\"
 
 # node refs
 onready var AddDialog     = $AddWindow
@@ -221,20 +221,35 @@ func _scan_file(f):
     
     if file.open(f) == OK:
         var line = file.get_line()
-        var linec = 0
-        var matched = false
-        var title = f.split('/').back()
+        var matched = null
+        var catching = false
+        var filename = f.split('/').back()
+        var comment = PoolStringArray()
+        var title = \"\"
         
         while not line.empty():
-            linec += 1
+            matched = _todo_regex.search(line)  
             
-            if _todo_regex.search(line) != null:
-                matched = true
-                
-            if matched and _comment_regex.search(line):
+            if catching:
+                var comm_match = _comment_regex.search(line)
                 # this is where we start capturing the comments
                 #  underneath the todo
-                pass"
+                
+                if comm_match != null:
+                    comment.append(comm_match.get_string(\"comment\"))
+                else:
+                    catching = false
+                    _add_to_tree(title,
+                                 filename + \" \" + comment.join(\" \"))
+                    
+            
+            # check for our title down here first
+            #  so we don't catch our title as a comment
+            if matched != null and not catching:
+                catching = true
+                title = matched.get_string(\"title\")  
+            
+            line = file.get_line()"
 
 [sub_resource type="GDScript" id=2]
 script/source = "tool
@@ -338,14 +353,14 @@ func _on_SaveBtn_pressed():
     conf_options = []
     conf_options.append(save_path.get_text())
     
-    var scan = scan_src.get_pressed()
+    var scan = scan_src.is_pressed()
     conf_options.append(scan)
     
     if scan:
         conf_options.append(src_location.get_text())
         conf_options.append(src_timeout.get_value())
     
-    conf_options.append(backup.get_pressed())
+    conf_options.append(backup.is_pressed())
         
     _on_CancelBtn_pressed()
 "
@@ -370,36 +385,40 @@ wait_time = 600.0
 autostart = true
 
 [node name="Dock" type="VBoxContainer" parent="."]
-editor/display_folded = true
 anchor_right = 1.0
 anchor_bottom = 1.0
 
 [node name="DockButtons" type="HBoxContainer" parent="Dock"]
-margin_right = 178.0
+margin_right = 173.0
 margin_bottom = 30.0
+custom_constants/separation = -2
 
 [node name="AddTodo" type="Button" parent="Dock/DockButtons"]
-margin_right = 98.0
+margin_right = 105.0
 margin_bottom = 30.0
 size_flags_horizontal = 3
 text = "Add Item"
 icon = ExtResource( 1 )
 
 [node name="DeleteBtn" type="Button" parent="Dock/DockButtons"]
-margin_left = 102.0
-margin_right = 138.0
+margin_left = 103.0
+margin_right = 139.0
 margin_bottom = 30.0
+size_flags_horizontal = 5
 icon = ExtResource( 2 )
+flat = true
 
 [node name="SettingsBtn" type="Button" parent="Dock/DockButtons"]
-margin_left = 142.0
-margin_right = 178.0
+margin_left = 137.0
+margin_right = 173.0
 margin_bottom = 30.0
+size_flags_horizontal = 5
 icon = ExtResource( 3 )
+flat = true
 
 [node name="Items" type="Tree" parent="Dock"]
 margin_top = 34.0
-margin_right = 178.0
+margin_right = 173.0
 margin_bottom = 239.0
 size_flags_vertical = 3
 allow_reselect = true
@@ -586,7 +605,6 @@ size_flags_horizontal = 3
 placeholder_text = "res://TODO.ini"
 
 [node name="Source" type="HBoxContainer" parent="ConfigWindow/Elements"]
-editor/display_folded = true
 margin_top = 34.0
 margin_right = 337.0
 margin_bottom = 58.0
@@ -743,7 +761,6 @@ margin_right = 594.0
 margin_bottom = 281.0
 window_title = "Confirm Delete"
 dialog_text = "        Delete Todo Item?"
-
 [connection signal="timeout" from="SourceScan" to="." method="_scan_source"]
 [connection signal="timeout" from="BackupTimer" to="." method="_make_backup"]
 [connection signal="pressed" from="Dock/DockButtons/AddTodo" to="." method="_on_AddTodo_pressed"]
