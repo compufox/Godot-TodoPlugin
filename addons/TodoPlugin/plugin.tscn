@@ -224,15 +224,14 @@ func _scan_dir(directory):
 func _scan_file(f):
     var file = File.new()
     
-    if file.open(f, File.READ) == OK:
+    if file.open(src_location + '/' + f, File.READ) == OK:
         var line = file.get_line()
         var matched = null
         var catching = false
-        var filename = f.split('/').back()
         var comment = PoolStringArray()
         var title = \"\"
         
-        while not line.empty():
+        while not file.eof_reached():
             matched = _todo_regex.search(line)  
             
             if catching:
@@ -245,7 +244,7 @@ func _scan_file(f):
                 else:
                     catching = false
                     _add_to_tree(title,
-                                 filename + \" \" + comment.join(\" \"))
+                                 f + \": \" + comment.join(\" \"))
                     title = \"\"
                     comment = PoolStringArray()
                     
