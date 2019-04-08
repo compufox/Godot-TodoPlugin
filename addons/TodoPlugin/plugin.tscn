@@ -11,14 +11,14 @@ extends Control
 
 # our config path; this wont change
 const ConfPath = \"res://addons/TodoPlugin/todo.cfg\"
-const TodoRegex = \"^(\\\\s+)?#(\\\\s+)?(T|t)(O|o)(D|d)(O|o):?\\\\s+(?<title>.*)\"
-const CommentRegex = \"^(\\\\s+)?#(\\\\s+)?(?<comment>.*)\"
+const TodoRegex = \"\\\\s*#\\\\s*(T|t)(O|o)(D|d)(O|o):?\\\\s*(?<title>.*)\"
+const CommentRegex = \"\\\\s*#\\\\s*(?<comment>.*)\"
 
 # node refs
 onready var AddDialog     = $AddWindow
 onready var ConfigDialog  = $ConfigWindow
 onready var DisplayDialog = $ViewWindow
-onready var ItemTree = $Dock/Items
+onready var ItemTree      = $Dock/Items
 
 # variables
 onready var _root = ItemTree.create_item()
@@ -26,6 +26,7 @@ var _todo_file = ConfigFile.new()
 var _conf_file = ConfigFile.new()
 var _todo_regex = RegEx.new()
 var _comment_regex = RegEx.new()
+var _tree_titles = []
 
 # our config vars
 var todo_path
@@ -81,17 +82,24 @@ func _load_config():
     else:
         $SourceScan.stop()
     
-func _add_to_tree(title, comment):
-    var title_item = ItemTree.create_item(_root)
-    title_item.set_text(0, title)
-    title_item.set_collapsed(true)
+func _add_to_tree(title, comment, save = false):
+    var thash = str(title.hash())
     
-    var comment_item = ItemTree.create_item(title_item)
-    comment_item.set_selectable(0, false)
-    comment_item.set_text(0, comment)
+    # check and make sure that the item we want to add
+    #  should be added. if it does then we add it
+    if save:
+        _add_item(title, comment)
     
-    # after we've added it to our tree, we add it into the db
-    _add_item(title, comment)
+    if not _tree_titles.has(thash):
+        var title_item = ItemTree.create_item(_root)
+        title_item.set_text(0, title)
+        title_item.set_collapsed(true)
+    
+        var comment_item = ItemTree.create_item(title_item)
+        comment_item.set_selectable(0, false)
+        comment_item.set_text(0, comment)
+        
+        _tree_titles.append(thash)
 
 # add a new item to the config file
 func _add_item(title, comment):
@@ -123,7 +131,9 @@ func _on_AddTodo_pressed():
 # callback for when the popup is closing
 func _on_AddWindow_popup_hide():
     if AddDialog.new_item != null:
-        _add_to_tree(AddDialog.new_item.front(), AddDialog.new_item.back())
+        _add_to_tree(AddDialog.new_item.front(),
+                     AddDialog.new_item.back(),
+                     true)
 
 # display our config popup
 func _on_SettingsBtn_pressed():
@@ -225,37 +235,39 @@ func _scan_file(f):
     var file = File.new()
     
     if file.open(src_location + '/' + f, File.READ) == OK:
-        var line = file.get_line()
+        var line = \"\"
         var matched = null
         var catching = false
         var comment = PoolStringArray()
         var title = \"\"
         
         while not file.eof_reached():
-            matched = _todo_regex.search(line)  
+            line = file.get_line()
+            print(line)
+            matched = _todo_regex.search(line)
             
             if catching:
                 var comm_match = _comment_regex.search(line)
+                
                 # this is where we start capturing the comments
                 #  underneath the todo
-                
                 if comm_match != null:
                     comment.append(comm_match.get_string(\"comment\"))
                 else:
                     catching = false
                     _add_to_tree(title,
-                                 f + \": \" + comment.join(\" \"))
+                                 f + \": \" + comment.join(\" \"),
+                                true)
                     title = \"\"
-                    comment = PoolStringArray()
-                    
+                    comment = PoolStringArray()    
             
             # check for our title down here first
             #  so we don't catch our title as a comment
             if matched != null and not catching:
                 catching = true
-                title = matched.get_string(\"title\")  
-            
-            line = file.get_line()
+                title = matched.get_string(\"title\")
+    else:
+        return
         
     file.close()"
 
